@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>豆豆的小阁楼 - 3D梦幻紫房间</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Three.js CDN (精简版) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <!-- GSAP for animations -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+</head>
+<body>
+    <!-- 加载界面 -->
+    <div id="loading-screen">
+        <div class="loader">
+            <div class="magic-book">
+                <div class="book-cover">豆豆的小阁楼</div>
+            </div>
+            <p class="loading-text">正在进入梦幻空间...</p>
+            <div class="progress-bar">
+                <div class="progress" id="loading-progress"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3D 画布 -->
+    <canvas id="room-canvas"></canvas>
+
+    <!-- UI 界面 -->
+    <div id="ui-overlay">
+        <!-- 顶部导航 -->
+        <div class="top-bar">
+            <button id="menu-btn" class="ui-btn">📋 菜单</button>
+            <div class="room-title">豆豆的小阁楼</div>
+            <button id="help-btn" class="ui-btn">❓ 帮助</button>
+        </div>
+
+        <!-- 底部控制提示 -->
+        <div class="controls-hint" id="controls-hint">
+            <p>🖱️ 鼠标拖动：环顾四周</p>
+            <p>⌨️ WASD：移动</p>
+            <p>🖱️ 左键点击：交互</p>
+            <p>🔊 空格键：暂停/继续音乐</p>
+        </div>
+    </div>
+
+    <!-- 内容展示面板 (动态创建) -->
+    <div id="content-panel" class="content-panel hidden">
+        <button class="close-btn" id="close-panel">✕</button>
+        <div class="panel-content" id="panel-content"></div>
+    </div>
+
+    <!-- 帮助模态框 -->
+    <div id="help-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>🎮 操作指南</h2>
+            <ul>
+                <li><strong>WASD</strong> - 前后左右移动</li>
+                <li><strong>鼠标拖动</strong> - 环顾四周</li>
+                <li><strong>左键点击</strong> - 与家具交互</li>
+                <li><strong>空格键</strong> - 暂停/继续背景音乐</li>
+                <li><strong>ESC</strong> - 关闭面板</li>
+            </ul>
+            <h3>🏠 可交互物品</h3>
+            <ul>
+                <li>📚 <strong>书架</strong> - 点击查看文章（魔法书效果）</li>
+                <li>💻 <strong>电脑</strong> - 点击观看视频</li>
+                <li>🪟 <strong>窗户</strong> - 点击查看照片墙</li>
+                <li>🎹 <strong>钢琴</strong> - 点击播放音乐</li>
+                <li>🔊 <strong>音箱</strong> - 点击播放音频</li>
+                <li>📒 <strong>笔记本</strong> - 点击查看随笔</li>
+            </ul>
+            <button class="modal-close" id="close-help">知道了</button>
+        </div>
+    </div>
+
+    <!-- 主脚本 (延迟加载) -->
+    <script src="js/config.js"></script>
+    <script src="js/room-builder.js"></script>
+    <script src="js/first-person-controller.js"></script>
+    <script src="js/interaction-manager.js"></script>
+    <script src="js/content-loader.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
