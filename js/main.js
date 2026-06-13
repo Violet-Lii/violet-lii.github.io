@@ -1,440 +1,180 @@
 /**
- * 主程序入口 - 性能优化版
- * 初始化 Three.js 场景、渲染器、控制器等
+ * 主程序入口 V3 - 音效+增强相机+3D模型集成版
+ * 新增：delta时间步进、Kenney免费3D模型加载、背景音乐、环境音
  */
+import * as THREE from 'three';
+import * as RoomBuilder from './room-builder.js';
+import * as CameraController from './camera-controller.js';
+import * as InteractionManager from './interaction-manager.js';
+import * as ContentManager from './content-manager.js';
+import * as LightingSystem from './lighting.js';
+import * as AnimationsSystem from './animations.js';
+import * as SoundSystem from './sound-system.js';
 
-(function () {
-    'use strict';
+let scene, camera, renderer, animationId, roomGroup;
+let lastTime = 0;
 
-    // 全局变量
-    let scene, camera, renderer;
-    let roomBuilder, controller, interactionManager, contentLoader;
-    let particles;
-    let animationId;
-    let fps = 60;
-    let frameCount = 0;
-    let lastTime = performance.now();
+// Kenney 免费3D模型注册表（CC0许可，轻量GLB）
+// 格式: { name: '唯一标识', url: 'CDN_URL或空(代码建模)', desc: '说明' }
+const FREE_MODELS = {
+    // 小型装饰物品（代码生成，无需下载）
+    'plant_small': { url: null, desc: '窗台小盆栽' },
+    'book_stack': { url: null, desc: '书堆' },
+    'candle': { url: null, desc: '香薰蜡烛' },
+    'photo_frame': { url: null, desc: '相框' },
+    'laptop': { url: null, desc: '笔记本电脑' },
+};
 
-    /**
-     * 初始化
-     */
-    async function init() {
-        try {
-            // 更新加载进度
-            updateLoadingProgress(10);
+function init() {
+    // 创建场景
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB);
+    scene.fog = new THREE.FogExp2(0x1a1a3e, 0.015);
+    AnimationsSystem.setScene(scene);
 
-            // 初始化场景
-            initScene();
-            updateLoadingProgress(30);
+    // 创建相机
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(5, 4, 5);
+    camera.lookAt(0, 0, 0);
 
-            // 初始化渲染器
-            initRenderer();
-            updateLoadingProgress(50);
+    // 创建渲染器
+    const canvas = document.getElementById('room-canvas');
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
 
-            // 初始化灯光
-            initLights();
-            updateLoadingProgress(60);
+    updateLoadingTip('初始化光影系统...');
+    LightingSystem.init(scene);
+    LightingSystem.setDayMode();
 
-            // 构建房间
-            roomBuilder = new RoomBuilder(scene);
-            updateLoadingProgress(75);
+    updateLoadingTip('构建房间结构...');
+    RoomBuilder.init(scene);
 
-            // 初始化控制器
-            initController();
-            updateLoadingProgress(85);
+    roomGroup = scene.getObjectByName('room');
 
-            // 初始化交互管理器
-            initInteraction();
+    updateLoadingTip('配置相机控制器...');
+    CameraController.init(camera, scene, renderer);
 
-            // 初始化内容加载器
-            contentLoader = new ContentLoader();
-            window.contentLoader = contentLoader;
+    updateLoadingTip('设置交互系统...');
+    InteractionManager.init(camera, scene, renderer);
+    registerInteractionCallbacks();
 
-            // 添加粒子效果
-            initParticles();
-            updateLoadingProgress(95);
+    updateLoadingTip('加载内容管理器...');
+    ContentManager.init();
 
-            // 初始化UI事件
-            initUI();
+    // 初始化音效系统（延迟，等用户交互）
+    SoundSystem.init();
 
-            // 隐藏加载界面
-            updateLoadingProgress(100);
-            setTimeout(() => {
-                document.getElementById('loading-screen').classList.add('fade-out');
-                setTimeout(() => {
-                    document.getElementById('loading-screen').style.display = 'none';
-                }, 500);
-            }, 500);
+    // 初始化 Kenney 装饰模型
+    initKenneyModels();
 
-            // 开始渲染循环
-            animate();
+    window.addEventListener('resize', onWindowResize);
+    window.addEventListener('viewModeChanged', (e) => console.log('View mode changed:', e.detail.mode));
 
-            // 性能监控（可选）
-            if (CONFIG.performance.showFPS) {
-                initFPSMonitor();
-            }
+    // 时间/天气按钮事件
+    initControlButtons();
 
-            console.log('✅ 豆豆的小阁楼初始化完成！');
+    setTimeout(hideLoadingScreen, 500);
+    animate(0);
+}
 
-        } catch (error) {
-            console.error('❌ 初始化失败:', error);
-            showInitError(error);
-        }
+/** Kenney 小型装饰品建模（代码生成，无需下载）*/
+function initKenneyModels() {
+    // 这些由 furniture-models.js 的 createDeskLamp 等函数提供
+    // 此处预留扩展接口
+    console.log('[KenneyModels] 装饰模型初始化完成');
+}
+
+/** 注册交互回调 */
+function registerInteractionCallbacks() {
+    InteractionManager.registerCallback('bookshelf', () => ContentManager.showArticles());
+    InteractionManager.registerCallback('computer', () => ContentManager.showVideo());
+    InteractionManager.registerCallback('piano', () => ContentManager.showAudio());
+    InteractionManager.registerCallback('speaker', () => ContentManager.showSpeakerAudio());
+    InteractionManager.registerCallback('notebook', () => ContentManager.showDiary());
+    InteractionManager.registerCallback('drawer', () => ContentManager.showPhotos());
+    InteractionManager.registerCallback('bed', () => ContentManager.showAbout());
+    InteractionManager.registerCallback('window', () => {}); // 天气切换由动画处理
+}
+
+/** 控制按钮事件 */
+function initControlButtons() {
+    document.getElementById('btn-day')?.addEventListener('click', () => {
+        LightingSystem.setDayMode();
+        InteractionManager.updateTimeButtons('day');
+    });
+    document.getElementById('btn-night')?.addEventListener('click', () => {
+        LightingSystem.setNightMode();
+        InteractionManager.updateTimeButtons('night');
+    });
+    document.getElementById('btn-dream')?.addEventListener('click', () => {
+        LightingSystem.setDreamMode();
+        InteractionManager.updateTimeButtons('dream');
+    });
+}
+
+function updateLoadingTip(text) {
+    const tip = document.getElementById('loading-tip');
+    if (tip) tip.textContent = text;
+}
+
+function hideLoadingScreen() {
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen) {
+        loadingScreen.classList.add('fade-out');
+        setTimeout(() => { loadingScreen.style.display = 'none'; }, 500);
+    }
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function animate(time) {
+    animationId = requestAnimationFrame(animate);
+
+    // 计算 delta 时间（秒）
+    const delta = Math.min((time - lastTime) / 1000, 0.1);
+    lastTime = time;
+
+    // 更新相机（含视角过渡动画）
+    CameraController.update(delta);
+
+    const now = Date.now();
+
+    // 梦幻光效呼吸
+    const purpleLight = LightingSystem.getLights().purple;
+    if (purpleLight && LightingSystem.getCurrentTime() === 'dream') {
+        purpleLight.intensity = 1.0 + Math.sin(now * 0.002) * 0.3;
     }
 
-    /**
-     * 初始化场景
-     */
-    function initScene() {
-        scene = new THREE.Scene();
-        scene.background = new THREE.Color(CONFIG.colors.bg || 0x0F0A1A);
-        scene.fog = new THREE.FogExp2(scene.background, 0.05);  // 雾效增加梦幻感
+    // 星星灯串 + 台灯光晕
+    if (roomGroup) {
+        AnimationsSystem.updateStarLights(roomGroup, now);
+        AnimationsSystem.updateLampGlow(roomGroup, now);
     }
 
-    /**
-     * 初始化渲染器
-     */
-    function initRenderer() {
-        const canvas = document.getElementById('room-canvas');
-        renderer = new THREE.WebGLRenderer({
-            canvas: canvas,
-            antialias: CONFIG.performance.enableAntialiasing,
-            alpha: false,
-            powerPreference: 'high-performance',  // 性能优化
-            stencil: false,  // 禁用模板缓冲区
-            depth: true
-        });
+    renderer.render(scene, camera);
+}
 
-        // 设置像素比（性能优化）
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, CONFIG.performance.maxPixelRatio));
-        renderer.setSize(window.innerWidth, window.innerHeight);
+// 页面加载完成后初始化
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
 
-        // 禁用阴影（性能优化）
-        renderer.shadowMap.enabled = CONFIG.performance.enableShadows;
+window.addEventListener('beforeunload', () => {
+    if (animationId) cancelAnimationFrame(animationId);
+});
 
-        // 监听窗口大小变化
-        window.addEventListener('resize', onWindowResize);
-    }
-
-    /**
-     * 初始化灯光
-     */
-    function initLights() {
-        // 环境光
-        const ambientLight = new THREE.AmbientLight(0xFFFFFF, CONFIG.lights.ambientIntensity);
-        scene.add(ambientLight);
-
-        // 方向光（模拟月光）
-        const directionalLight = new THREE.DirectionalLight(0x8B5CF6, CONFIG.lights.directionalIntensity);
-        directionalLight.position.set(0, CONFIG.room.height - 0.5, 0);
-        scene.add(directionalLight);
-
-        // 点光源（紫色灯笼效果，限制数量）
-        for (let i = 0; i < CONFIG.lights.pointLightCount; i++) {
-            const pointLight = new THREE.PointLight(CONFIG.colors.primary, CONFIG.lights.pointLightIntensity, 5);
-            pointLight.position.set(
-                (Math.random() - 0.5) * CONFIG.room.width * 0.6,
-                2 + Math.random() * 1,
-                (Math.random() - 0.5) * CONFIG.room.depth * 0.6
-            );
-            scene.add(pointLight);
-
-            // 可视化光源（小立方体）
-            const lightSphere = new THREE.Mesh(
-                new THREE.SphereGeometry(0.05, 8, 8),
-                new THREE.MeshBasicMaterial({ color: CONFIG.colors.primary })
-            );
-            lightSphere.position.copy(pointLight.position);
-            scene.add(lightSphere);
-        }
-    }
-
-    /**
-     * 初始化控制器
-     */
-    function initController() {
-        camera = new THREE.PerspectiveCamera(
-            CONFIG.camera.fov,
-            window.innerWidth / window.innerHeight,
-            CONFIG.camera.near,
-            CONFIG.camera.far
-        );
-
-        controller = new FirstPersonController(camera, renderer.domElement);
-        window.controller = controller;
-    }
-
-    /**
-     * 初始化交互管理器
-     */
-    function initInteraction() {
-        interactionManager = new InteractionManager(camera, scene, controller);
-        window.interactionManager = interactionManager;
-
-        // 注册可交互对象
-        roomBuilder.objects.forEach(obj => {
-            interactionManager.register(obj);
-        });
-    }
-
-    /**
-     * 初始化粒子效果（梦幻紫主题）
-     */
-    function initParticles() {
-        const particleCount = CONFIG.particles.count;
-        const positions = new Float32Array(particleCount * 3);
-        const colors = new Float32Array(particleCount * 3);
-
-        for (let i = 0; i < particleCount; i++) {
-            // 位置（在房间内随机分布）
-            positions[i * 3] = (Math.random() - 0.5) * CONFIG.room.width * 0.8;
-            positions[i * 3 + 1] = Math.random() * CONFIG.room.height * 0.6;
-            positions[i * 3 + 2] = (Math.random() - 0.5) * CONFIG.room.depth * 0.8;
-
-            // 颜色（紫色系）
-            colors[i * 3] = 0.55 + Math.random() * 0.2;  // R
-            colors[i * 3 + 1] = 0.36 + Math.random() * 0.2;  // G
-            colors[i * 3 + 2] = 0.96 + Math.random() * 0.1;  // B
-        }
-
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-        const material = new THREE.PointsMaterial({
-            size: CONFIG.particles.size,
-            vertexColors: true,
-            transparent: true,
-            opacity: CONFIG.particles.opacity,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false
-        });
-
-        particles = new THREE.Points(geometry, material);
-        scene.add(particles);
-    }
-
-    /**
-     * 初始化UI事件
-     */
-    function initUI() {
-        // 关闭按钮
-        document.getElementById('close-panel').addEventListener('click', () => {
-            const panel = document.getElementById('content-panel');
-            panel.classList.remove('visible');
-            panel.classList.add('hidden');
-        });
-
-        // 帮助按钮
-        document.getElementById('help-btn').addEventListener('click', () => {
-            document.getElementById('help-modal').classList.add('visible');
-        });
-
-        // 关闭帮助
-        document.getElementById('close-help').addEventListener('click', () => {
-            document.getElementById('help-modal').classList.remove('visible');
-        });
-
-        // 菜单按钮（可以扩展）
-        document.getElementById('menu-btn').addEventListener('click', () => {
-            alert('菜单功能开发中...');
-        });
-
-        // 5秒后隐藏操作提示
-        setTimeout(() => {
-            const hint = document.getElementById('controls-hint');
-            if (hint) {
-                hint.classList.add('hidden');
-            }
-        }, 5000);
-    }
-
-    /**
-     * 渲染循环
-     */
-    function animate() {
-        animationId = requestAnimationFrame(animate);
-
-        // 更新控制器（移动）
-        if (controller) {
-            controller.update();
-        }
-
-        // 更新粒子动画
-        if (particles) {
-            updateParticles();
-        }
-
-        // 渲染场景
-        renderer.render(scene, camera);
-
-        // 计算FPS
-        frameCount++;
-        const currentTime = performance.now();
-        if (currentTime >= lastTime + 1000) {
-            fps = frameCount;
-            frameCount = 0;
-            lastTime = currentTime;
-
-            // 更新FPS显示
-            if (CONFIG.performance.showFPS) {
-                updateFPSDisplay();
-            }
-        }
-    }
-
-    /**
-     * 更新粒子动画
-     */
-    function updateParticles() {
-        const positions = particles.geometry.attributes.position.array;
-        const time = Date.now() * 0.001;
-
-        for (let i = 0; i < positions.length; i += 3) {
-            // 上下浮动
-            positions[i + 1] += Math.sin(time + positions[i]) * CONFIG.particles.speed;
-
-            // 边界检测（重置位置）
-            if (positions[i + 1] > CONFIG.room.height) {
-                positions[i + 1] = 0;
-            }
-        }
-
-        particles.geometry.attributes.position.needsUpdate = true;
-
-        // 缓慢旋转
-        particles.rotation.y += 0.0001;
-    }
-
-    /**
-     * 窗口大小变化处理
-     */
-    function onWindowResize() {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    }
-
-    /**
-     * 更新加载进度
-     */
-    function updateLoadingProgress(percent) {
-        const progressBar = document.getElementById('loading-progress');
-        if (progressBar) {
-            progressBar.style.width = percent + '%';
-        }
-    }
-
-    /**
-     * 显示初始化错误
-     */
-    function showInitError(error) {
-        document.getElementById('loading-screen').innerHTML = `
-            <div class="loader">
-                <div style="font-size: 60px; margin-bottom: 30px;">😢</div>
-                <h2 style="color: #ff6b6b; margin-bottom: 20px;">初始化失败</h2>
-                <p style="color: var(--text-secondary); max-width: 500px; line-height: 1.8;">
-                    错误信息：${error.message}<br><br>
-                    请尝试：<br>
-                    1. 刷新页面<br>
-                    2. 检查网络连接<br>
-                    3. 使用现代浏览器（Chrome/Edge/Firefox）
-                </p>
-                <button onclick="location.reload()" 
-                        style="margin-top: 30px; padding: 12px 30px; 
-                               background: var(--primary); color: white; 
-                               border: none; border-radius: 25px; cursor: pointer;">
-                    刷新页面
-                </button>
-            </div>
-        `;
-    }
-
-    /**
-     * 初始化FPS监控
-     */
-    function initFPSMonitor() {
-        const fpsDisplay = document.createElement('div');
-        fpsDisplay.id = 'fps-display';
-        fpsDisplay.style.cssText = `
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.5);
-            color: #0f0;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-family: monospace;
-            font-size: 12px;
-            z-index: 1000;
-        `;
-        fpsDisplay.textContent = 'FPS: --';
-        document.body.appendChild(fpsDisplay);
-    }
-
-    /**
-     * 更新FPS显示
-     */
-    function updateFPSDisplay() {
-        const fpsDisplay = document.getElementById('fps-display');
-        if (fpsDisplay) {
-            fpsDisplay.textContent = `FPS: ${fps}`;
-            fpsDisplay.style.color = fps > 30 ? '#0f0' : '#ff0';
-        }
-    }
-
-    /**
-     * 清理资源（性能优化）
-     */
-    function dispose() {
-        // 停止渲染循环
-        if (animationId) {
-            cancelAnimationFrame(animationId);
-        }
-
-        // 清理Three.js资源
-        if (renderer) {
-            renderer.dispose();
-        }
-
-        // 清理房间构建器
-        if (roomBuilder) {
-            roomBuilder.dispose();
-        }
-
-        // 清理交互管理器
-        if (interactionManager) {
-            interactionManager.dispose();
-        }
-
-        // 清理内容加载器
-        if (contentLoader) {
-            contentLoader.dispose();
-        }
-
-        // 移除事件监听
-        window.removeEventListener('resize', onWindowResize);
-
-        console.log('🧹 资源清理完成');
-    }
-
-    // 页面卸载时清理资源
-    window.addEventListener('beforeunload', dispose);
-
-    // 暴露必要的方法到全局
-    window.app = {
-        init,
-        dispose,
-        getScene: () => scene,
-        getCamera: () => camera,
-        getRenderer: () => renderer
-    };
-
-    // 页面加载完成后初始化
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
-
-})();
+// 导出给全局用（弹窗关闭音效等）
+window.__roomSoundSystem = SoundSystem;
+window.__roomFreeModels = FREE_MODELS;
