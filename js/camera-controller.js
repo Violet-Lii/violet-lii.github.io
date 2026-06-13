@@ -23,7 +23,7 @@ const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
 const keys = { forward: false, backward: false, left: false, right: false, sprint: false };
 let isLocked = false;
-let isMoving = false;
+let _isMoving = false;
 let headBobTime = 0;
 let lastMoveDir = new THREE.Vector3();
 
@@ -262,9 +262,9 @@ function updateFirstPerson(delta) {
     if (direction.z !== 0 || direction.x !== 0) {
         velocity.z += direction.z * currentSpeed * acceleration;
         velocity.x += direction.x * currentSpeed * acceleration;
-        isMoving = true;
+        _isMoving = true;
     } else {
-        isMoving = false;
+        _isMoving = false;
     }
 
     // 限速
@@ -319,7 +319,7 @@ function applyHeadBob(delta) {
 
 export function getMode() { return mode; }
 export function getVelocity() { return velocity.length(); }
-export function isMoving() { return isMoving; }
+export function isMoving() { return _isMoving; }
 
 export function setMouseSensitivity(sens) {
     mouseSensitivity = Math.max(0.2, Math.min(3.0, sens));
