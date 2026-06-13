@@ -1308,14 +1308,19 @@ export function createWallPhotoFrame(color = 0xDDA0DD, width = 0.35, height = 0.
 
     // 外框（4条边）
     const thickness = 0.03;
+    function makeFrameBar(w, h, d, x, y, z) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), frameMat);
+        bar.position.set(x, y, z);
+        return bar;
+    }
     // 上
-    group.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(width + thickness * 2, thickness, thickness), frameMat), { position: new THREE.Vector3(0, height / 2 + thickness / 2, 0) }));
+    group.add(makeFrameBar(width + thickness * 2, thickness, thickness, 0, height / 2 + thickness / 2, 0));
     // 下
-    group.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(width + thickness * 2, thickness, thickness), frameMat), { position: new THREE.Vector3(0, -height / 2 - thickness / 2, 0) }));
+    group.add(makeFrameBar(width + thickness * 2, thickness, thickness, 0, -height / 2 - thickness / 2, 0));
     // 左
-    group.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(thickness, height, thickness), frameMat), { position: new THREE.Vector3(-width / 2 - thickness / 2, 0, 0) }));
+    group.add(makeFrameBar(thickness, height, thickness, -width / 2 - thickness / 2, 0, 0));
     // 右
-    group.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(thickness, height, thickness), frameMat), { position: new THREE.Vector3(width / 2 + thickness / 2, 0, 0) }));
+    group.add(makeFrameBar(thickness, height, thickness, width / 2 + thickness / 2, 0, 0));
 
     // 内容（白色底+彩色渐变模拟照片）
     const photoCanvas = document.createElement('canvas');
@@ -1714,10 +1719,15 @@ export function createWallPoster(x = 0, y = 0, z = 0, rotY = 0) {
     const posterW = 0.5, posterH = 0.35;
 
     // 4条边框
-    group.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(posterW + 0.04, 0.025, 0.02), frameMat), { position: new THREE.Vector3(0, posterH / 2 + 0.012, 0) }));
-    group.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(posterW + 0.04, 0.025, 0.02), frameMat), { position: new THREE.Vector3(0, -posterH / 2 - 0.012, 0) }));
-    group.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.025, posterH, 0.02), frameMat), { position: new THREE.Vector3(-posterW / 2 - 0.012, 0, 0) }));
-    group.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.025, posterH, 0.02), frameMat), { position: new THREE.Vector3(posterW / 2 + 0.012, 0, 0) }));
+    function makePosterBar(w, h, d, px, py, pz) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), frameMat);
+        bar.position.set(px, py, pz);
+        return bar;
+    }
+    group.add(makePosterBar(posterW + 0.04, 0.025, 0.02, 0, posterH / 2 + 0.012, 0));
+    group.add(makePosterBar(posterW + 0.04, 0.025, 0.02, 0, -posterH / 2 - 0.012, 0));
+    group.add(makePosterBar(0.025, posterH, 0.02, -posterW / 2 - 0.012, 0, 0));
+    group.add(makePosterBar(0.025, posterH, 0.02, posterW / 2 + 0.012, 0, 0));
 
     // 海报内容 - 梦幻紫色渐变 + 月亮星星
     const posterCanvas = document.createElement('canvas');
