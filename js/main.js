@@ -4,9 +4,9 @@
  */
 // === 全局错误捕获 ===
 window.addEventListener('error', (e) => {
-  console.error('[ERROR]', e.message, e.filename, e.lineno);
+  console.error('[ERROR]', e.message, e.filename, e.lineno, e.colno, e.error?.stack);
   const tip = document.getElementById('loading-tip');
-  if (tip) tip.textContent = '错误: ' + e.message;
+  if (tip) tip.textContent = `错误: ${e.message} @ ${e.filename}:${e.lineno}:${e.colno}`;
 });
 window.addEventListener('unhandledrejection', (e) => {
   console.error('[PROMISE ERROR]', e.reason);
