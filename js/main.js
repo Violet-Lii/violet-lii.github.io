@@ -2,6 +2,18 @@
  * 主程序入口 V3 - 音效+增强相机+3D模型集成版
  * 新增：delta时间步进、Kenney免费3D模型加载、背景音乐、环境音
  */
+// === 全局错误捕获 ===
+window.addEventListener('error', (e) => {
+  console.error('[ERROR]', e.message, e.filename, e.lineno);
+  const tip = document.getElementById('loading-tip');
+  if (tip) tip.textContent = '错误: ' + e.message;
+});
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('[PROMISE ERROR]', e.reason);
+  const tip = document.getElementById('loading-tip');
+  if (tip) tip.textContent = '异步错误: ' + (e.reason?.message || e.reason);
+});
+
 import * as THREE from 'three';
 import * as RoomBuilder from './room-builder.js';
 import * as CameraController from './camera-controller.js';
